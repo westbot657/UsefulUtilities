@@ -1,7 +1,15 @@
 
+import math
 import time
 import re
 
+def get_kwargs(kwargs:dict, *allowed_keys):
+    for key in allowed_keys:
+        val = kwargs.get(key, None)
+        if val:
+            return val
+
+    return None
 
 class Color:
 
@@ -28,6 +36,68 @@ class Color:
         WHITE  = "\033[48;2;255;255;255m"
         GREY = GRAY = "\033[48;2;127;127;127m"
         NONE = "\033[0m"
+
+    @staticmethod
+    def rainbow(text, start=0, end=None, repeat=1):
+        """
+        if end is None, the rainbow will go back to purple/red at the end of the text,
+        if end is negative, rainbow will shift backwards
+
+        setting start to None will create a reversed rainbow from leaving both start and end as their default value
+
+        repeat effects how many times the rainbow shifts between the start and end
+
+        start and end do not have to be valid indeces of the string, must must be integers
+        """
+
+        if start == None:
+            start = length(text)
+            end = 0
+
+        if end == None:
+            end = length(text)
+
+        width = int((end - start) / repeat)
+        
+        def _get(percent):
+            while percent > 1:
+                percent -= 1
+            while percent < 0:
+                percent += 1
+
+            red = max(int(math.cos(math.radians(percent * 360)) * 255), 0)
+            green = max(int(math.cos(math.radians((percent * 360) - 80)) * 255), 0)
+            blue = max(int(math.cos(math.radians((percent * 360) + 120)) * 255), 0)
+
+            # print(f"\033[38;2;{red};{green};{blue}m", red, green, blue, "\033[0m")
+            return f"\033[38;2;{red};{green};{blue}m"
+
+
+        # i = 0
+        # while i <= 1:
+        #     _get(i)
+        #     i += 0.05
+        colored = ""
+        # "this is an example string blorp"
+        #  ^          ^  ^         ^
+        #  pos      end  [pos]     start  width=13
+        for i in range(len(text)):
+            c = text[i]
+            d = i
+            while d < min(start, end):
+                d += abs(width)
+
+            while d > max(start, end):
+                d -= abs(width)
+
+            col = _get(d/width)
+            colored += col + c
+        colored += "\033[0m"
+        return colored
+            
+            
+
+            
 
     @staticmethod
     def toHex(*val):
@@ -235,14 +305,10 @@ class Color:
 
                     elif isinstance(B, int):
                         r, g, b = Color.toRGB(A)
-                        if B == 0:
-                            self.value = f"\033[38;2;{r};{g};{b}m"
-                        elif B == 1:
-                            self.value = f"\033[48;2;{r};{g};{b}m"
-                        elif B == 2:
-                            self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
-                        else:
-                            self.value = Exception(f"Invalid state: '{B}'")
+                        if B == 0: self.value = f"\033[38;2;{r};{g};{b}m"
+                        elif B == 1: self.value = f"\033[48;2;{r};{g};{b}m"
+                        elif B == 2: self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
+                        else: self.value = Exception(f"Invalid state: '{B}'")
 
                 elif isinstance(A, tuple):
                     # (r, g, b), state
@@ -251,14 +317,10 @@ class Color:
                     if isinstance(B, int):
                         # (r, g, b), state
                         r, g, b = A
-                        if B == 0:
-                            self.value = f"\033[38;2;{r};{g};{b}m"
-                        elif B == 1:
-                            self.value = f"\033[48;2;{r};{g};{b}m"
-                        elif B == 2:
-                            self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
-                        else:
-                            raise Exception(f"Invalid state: {B}")
+                        if B == 0: self.value = f"\033[38;2;{r};{g};{b}m"
+                        elif B == 1: self.value = f"\033[48;2;{r};{g};{b}m"
+                        elif B == 2: self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
+                        else: raise Exception(f"Invalid state: {B}")
 
                     elif isinstance(B, tuple):
                         # (fr, fg, fb), (br, bg, bb)
@@ -271,14 +333,10 @@ class Color:
                     # 0xFFFFFF, state
                     r, g, b = Color.toRGB(A)
 
-                    if B == 0:
-                        self.value = f"\033[38;2;{r};{g};{b}m"
-                    elif B == 1:
-                        self.value = f"\033[48;2;{r};{g};{b}m"
-                    elif B == 2:
-                        self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
-                    else:
-                        self.value = Exception(f"Invalid state: {B}")
+                    if B == 0: self.value = f"\033[38;2;{r};{g};{b}m"
+                    elif B == 1: self.value = f"\033[48;2;{r};{g};{b}m"
+                    elif B == 2: self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
+                    else: raise Exception(f"Invalid state: {B}")
 
             elif len(args) == 3:
                 # r, g, b
@@ -292,14 +350,105 @@ class Color:
             elif len(args) == 4:
                 # r, g, b, state
                 r, g, b, B = args
-                if B == 0:
-                    self.value = f"\033[38;2;{r};{g};{b}m"
-                elif B == 1:
+                if B == 0: self.value = f"\033[38;2;{r};{g};{b}m"
+                elif B == 1: self.value = f"\033[48;2;{r};{g};{b}m"
+                elif B == 2: self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
+                else: raise Exception(f"Invalid state: {B}")
+
+        else:
+            new = {}
+            keys = []
+            for key in kwargs.keys():
+                val = kwargs[key]
+                keys.append(key.lower())
+                new.update({key.lower(): val})
+
+            kwargs = new
+
+            # Color(r:`int`, g:`int`, b:`int`, state:`int`=0) # r/red, g/green, b/blue[, s/state] # 255, 255, 255[, 2]
+            # Color(hex:`str`, state:`int`=0) # h/hex[, s/state] # "#FFFFFF"[, 2]
+            # Color(fghex:`str`, bghex:`str`, state:`int`=0) # fh/fhex/fghex, bh/bhex/bghex[, s/state] # "#FFFFFF", "#FFFFFF"[, 2]
+            # Color(hex:`str`, state:`int`=0) # h/hex[, s/state] # "#FFFFFF #FFFFFF"[, 2]
+            # Color(fr, fg, fb, br, bg, bb)
+
+            state = get_kwargs(kwargs, "state", "s")
+
+            red   = get_kwargs(kwargs, "red", "r", "fr", "fgr", "fg_r", "fg_red")
+            green = get_kwargs(kwargs, "green", "g", "fg", "fgg", "fg_g", "fg_green")
+            blue  = get_kwargs(kwargs, "blue", "b", "fb", "fgb", "fg_b", "fg_blue")
+
+            red2   = get_kwargs(kwargs, "br", "bg_r", "bg_red", "bgred", "bgr")
+            green2 = get_kwargs(kwargs, "bg", "bg_g", "bg_green", "bggreen", "bgg")
+            blue2  = get_kwargs(kwargs, "bb", "bg_b", "bg_blue", "bgblue", "bgb")
+
+            hex  = get_kwargs(kwargs, "h", "hex", "fghex", "fg_hex", "fh", "fgh")
+            hex2 = get_kwargs(kwargs, "bghex", "bg_hex", "bh", "bgh")
+
+            rgb  = get_kwargs(kwargs, "rgb", "fgrgb", "fg_rgb", "frgb")
+            rgb2 = get_kwargs(kwargs, "bgrgb", "bg_rgb", "brgb")
+
+            if state:
+                if not 0 <= state <= 2:
+                    raise Exception("Invalid state value")
+
+            if (red or green or blue) and (not (red2 or green2 or blue2)):
+                r = red or 0
+                g = green or 0
+                b = blue or 0
+
+                s = state or 0
+
+                if s == 0: self.value = f"\033[38;2;{r};{g};{b}m"
+                elif s == 1: self.value = f"\033[48;2;{r};{g};{b}m"
+                elif s == 2: self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
+
+            elif (not (red or green or blue) and (red2 or green2 or blue2)):
+                r = red2 or 0
+                g = green2 or 0
+                b = blue2 or 0
+
+                self.value = f"\033[48;2;{r};{g};{b}m"
+
+            elif (red or green or blue) and (red2 or green2 or blue2):
+                fr = red or 0
+                fg = green or 0
+                fb = blue or 0
+                br = red2 or 0
+                bg = green2 or 0
+                bb = blue2 or 0
+
+                self.value = f"\033[38;2;{fr};{fg};{fb}m\033[48;2;{br};{bg};{bb}m"
+
+            elif rgb or rgb2:
+                if rgb and (not rgb2): self.value = Color(rgb, state or 0).value
+                elif (not rgb) and rgb2: self.value = Color(rgb2, 1).value
+                else: self.value = Color(rgb, rgb2).value
+
+            elif hex or hex2:
+                if hex and (not hex2):
+                    if " " in hex:
+                        h1, h2 = hex.split(" ")
+                        fr, fg, fb = Color.getRGB(h1)
+                        br, bg, bb = Color.getRGB(h2)
+                        self.value = f"\033[38;2;{fr};{fg};{fb}m\033[48;2;{br};{bg};{bb}m"
+                    else:
+                        r, g, b = Color.getRGB(hex)
+                        s = state or 0
+
+                        if s == 0: self.value = f"\033[38;2;{r};{g};{b}m"
+                        if s == 1: self.value = f"\033[48;2;{r};{g};{b}m"
+                        if s == 2: self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
+
+                elif (not hex) and hex2:
+                    r, g, b = Color.getRGB(hex2)
+                    
                     self.value = f"\033[48;2;{r};{g};{b}m"
-                elif B == 2:
-                    self.value = f"\033[38;2;{r};{g};{b}m\033[48;2;{r};{g};{b}m"
+                
                 else:
-                    raise Exception(f"Invalid state: {B}")
+                    fr, fg, fb = Color.getRGB(hex)
+                    br, bg, bb = Color.getRGB(hex2)
+                    self.value = f"\033[38;2;{fr};{fg};{fb}m\033[48;2;{br};{bg};{bb}m"
+
 
         self.fgRed, self.fgGreen, self.fgBlue = self.bgRed, self.bgGreen, self.bgBlue = self.fg = self.bg = (None, None, None)
 
@@ -571,7 +720,7 @@ def slidetext(*values, sep=" ", end="\n", block_slide=False, rate=0.05, **slide_
             @classmethod
             def alt(cls, space):
                 cls.v = 0 if cls.v == 1 else 1
-                return " " * (len(space) + cls.v)
+                return " " * (len(space.group()) + cls.v)
             
             @classmethod
             def add(cls, space):
@@ -884,23 +1033,34 @@ def main():
     #     "weeee!!"
     # ]), start_side="left", block_slide=True, slide_start=0, rate=slidetext.rate.ease_in_out, align="center")
 
-    time.sleep(0.3)
-    area = TextArea(
-        " 01 | ",
-        " 02 | ",
-        " 03 | ",
-        " 04 | ",
-        " 05 | ",
-        " 06 | ",
-        wait=0.1
-    )
 
-    area.write(0, "@Lexer", flash=True, wait=0.2)
+    # slidetext("\n".join([
+    #     "Slide Text!",
+    #     "This is an example of block-slide",
+    #     "and center alignment"
+    # ]), block_slide=True, align="center")
 
-    area.write(1, "#!literals", flash=True, wait=0.2)
+    # slidetext("\n".join([
+    #     "and this is an example",
+    #     "of a justify-aligned",
+    #     "block-slide text",
+    #     "that slid from the right"
+    # ]), block_slide=True, align="justify", start_side="right")
 
-    i = area.input(1, "dis a test: ", flash=True, clear_after=True)
+    # slidetext("\n".join([
+    #     "and this is a right-align",
+    #     "block-slide text"
+    # ]), block_slide=True, align="right", start_side="right")
 
+    # slidetext("\n".join([
+    #     "and finally, this is the",
+    #     "left-align block-slide text",
+    #     "but with a dynamic slide rate"
+    # ]), block_slide=True, start_side="right", rate=slidetext.rate.ease_in_out)
+
+    typewrite(f"This is what {Color.rainbow('typewrite')} looks like!")
+    typewrite(Color.rainbow("And with a rainbow on the whole line"))
+    typewrite(Color.rainbow("And another line with a different rainbow WEEEE", start=None))
 
 
 if __name__ == "__main__":
