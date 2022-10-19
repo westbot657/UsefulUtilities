@@ -1,6 +1,7 @@
-# UsefulUtilities
-a collection of useful tools I've discovered, and decided to make simpler  
+# Useful Utilities
+a collection of useful tools I've discovered/made, and decided to make simpler!  
 
+[Text Utilities](#text-utilities)  
 
 ## text utilities
 
@@ -8,7 +9,6 @@ a collection of useful tools I've discovered, and decided to make simpler
 [typewrite](#typewrite)  
 [slidetext](#slidetext)  
 [TextArea](#textarea)  
-
 
 
 ### Color
@@ -84,14 +84,51 @@ as a `callback`, rate must take 1 argument of type `float`, between 0 and 1, and
 
 ### TextArea
 `TextArea(*lines)`  
+A class to simplify multi-line output
 
-* `TextArea.write(self, line:int, text:str, print_method:callable=print, flash:bool=False, wait:float=0)`
-* `TextArea.clear(self)`
-* `TextArea.replace(self)`
-* `TextArea.input(self)`
-* `TextArea.add(self, *lines)`
+#### `TextArea.write(self, line:int, text:str, print_method:callable=print, flash:bool=False, wait:float=0)`
+* line : `int`
+what line to display text on
 
-a class that simplifies output on multiple lines
+* text : `str`
+what text to display
+
+* print_method : `callable` = `print`
+what method to use to display text
+
+* flash : `bool` = `False`
+whether to first print text with a full-white background, and then clear it and display using print_method
+
+* wait : `float` = `0`
+how long to sleep for after finish displaying
+
+
+#### `TextArea.clear(self, line:int, flash:bool=False, wait:float=0)`
+
+
+#### `TextArea.replace(self, line:int, text:str, print_method:callable=print, flash:bool=False, wait:float=0)`
+* line : `int`
+* text : `str`
+* print_method : `callable` = `print`
+* flash : `bool` = `False`
+* wait : `float` = `0`
+
+#### `TextArea.input(self, line:int, prompt:str="", print_method:callable=print, flash:bool=False, clear_after:bool=False)`
+* line : `int`
+what line user will input text on
+* prompt : `str` = `""`
+prompt to display before input (on same line)
+* print_method : `callable` = `print`
+method used to display the prompt
+* flash : `bool` = `False`
+whether to make the prompt text flash before displaying with print_method
+* clear_after : `bool` = `False`
+whether to remove the prompt and the user input after input is given
+
+
+#### `TextArea.add(self, *lines)`
+
+
 
 
 
