@@ -3,7 +3,7 @@ a collection of useful tools I've discovered/made, and decided to make simpler!
 
 [Text Utilities](#text-utilities)  
 
-## text utilities
+## Text Utilities
 
 [Color](#color)  
 [typewrite](#typewrite)  
@@ -103,31 +103,54 @@ whether to first print text with a full-white background, and then clear it and 
 how long to sleep for after finish displaying
 
 
-#### `TextArea.clear(self, line:int, flash:bool=False, wait:float=0)`
+#### `TextArea.clear(self, *lines, flash:bool=False, wait:float=0)`
+* lines : `int`
+what lines to clear
+
+* flash : `bool` = `False`
+whether to white-out the line before clearing it
+
+* wait : `float` = `0`
+how lone to sleep after clearing a line
 
 
 #### `TextArea.replace(self, line:int, text:str, print_method:callable=print, flash:bool=False, wait:float=0)`
 * line : `int`
+line to replace
+
 * text : `str`
+text to replace line with
+
 * print_method : `callable` = `print`
+method used to display new text
+
 * flash : `bool` = `False`
+whether to white-out the line before displaying with print_method
+
 * wait : `float` = `0`
+how long to sleep after displaying
+
 
 #### `TextArea.input(self, line:int, prompt:str="", print_method:callable=print, flash:bool=False, clear_after:bool=False)`
 * line : `int`
 what line user will input text on
+
 * prompt : `str` = `""`
 prompt to display before input (on same line)
+
 * print_method : `callable` = `print`
 method used to display the prompt
+
 * flash : `bool` = `False`
 whether to make the prompt text flash before displaying with print_method
+
 * clear_after : `bool` = `False`
 whether to remove the prompt and the user input after input is given
 
 
 #### `TextArea.add(self, *lines)`
-
+* lines : `tuple`
+lines of text to add at the end of the text area
 
 
 
