@@ -22,6 +22,16 @@ a flexible class that creates an ascii color-code
 - `Color(fg_bg_hex)`
 - `Color(fg_hex, bg_hex)`
 
+#### `Color.toHex(*val)`
+
+#### `Color.toRGB(val)`
+
+#### `Color.FG`
+contains constants for common colors for foreground
+#### `Color.BG`
+contains constants for common colors for background
+
+
 ### typewrite
 `typewrite(*values, sep:str=' ', end:str='\n', rate:float=0.05, dynamic_rate:bool=True, max_width:int=100, hidden_chars_take_time:bool=False)`  
 this function prints text to look as if it is being typed.

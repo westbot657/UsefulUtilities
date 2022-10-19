@@ -5,22 +5,38 @@ import re
 
 class Color:
 
-    RED    = "\033[38;2;255;0;0m"
-    ORANGE = "\033[38;2;255;127;0m"
-    YELLOW = "\033[38;2;255;255;0m"
-    GREEN  = "\033[38;2;0;255;0m"
-    BLUE   = "\033[38;2;0;0;255m"
-    PURPLE = "\033[38;2;255;0;255m"
-    BLACK  = "\033[38;2;0;0;0m"
-    WHITE  = "\033[38;2;255;255;255m"
-    GREY = GRAY = "\033[38;2;127;127;127m"
-    NONE = "\033[0m"
+    class FG:
+        RED    = "\033[38;2;255;0;0m"
+        ORANGE = "\033[38;2;255;127;0m"
+        YELLOW = "\033[38;2;255;255;0m"
+        GREEN  = "\033[38;2;0;255;0m"
+        BLUE   = "\033[38;2;0;0;255m"
+        PURPLE = "\033[38;2;255;0;255m"
+        BLACK  = "\033[38;2;0;0;0m"
+        WHITE  = "\033[38;2;255;255;255m"
+        GREY = GRAY = "\033[38;2;127;127;127m"
+        NONE = "\033[0m"
+
+    class BG:
+        RED    = "\033[48;2;255;0;0m"
+        ORANGE = "\033[48;2;255;127;0m"
+        YELLOW = "\033[48;2;255;255;0m"
+        GREEN  = "\033[48;2;0;255;0m"
+        BLUE   = "\033[48;2;0;0;255m"
+        PURPLE = "\033[48;2;255;0;255m"
+        BLACK  = "\033[48;2;0;0;0m"
+        WHITE  = "\033[48;2;255;255;255m"
+        GREY = GRAY = "\033[48;2;127;127;127m"
+        NONE = "\033[0m"
 
     @staticmethod
-    def toHex(val):
+    def toHex(*val):
         """
         val may be a tuple (r, g, b) or an int (0xff0000)
         """
+
+        if len(val) == 1:
+            val = val[0]
 
         _ih = {
             10: "a",
@@ -65,11 +81,11 @@ class Color:
 
         if isinstance(hex, str):
             hex = hex.replace("#", "")
-            r = int(_hi.get(hex[0], hex[0]) * 16) + int(_hi.get(hex[1], hex[1]))
-            g = int(_hi.get(hex[2], hex[2]) * 16) + int(_hi.get(hex[3], hex[3]))
-            b = int(_hi.get(hex[4], hex[4]) * 16) + int(_hi.get(hex[5], hex[5]))
+            r = (int(_hi.get(hex[0], hex[0])) * 16) + int(_hi.get(hex[1], hex[1]))
+            g = (int(_hi.get(hex[2], hex[2])) * 16) + int(_hi.get(hex[3], hex[3]))
+            b = (int(_hi.get(hex[4], hex[4])) * 16) + int(_hi.get(hex[5], hex[5]))
 
-        elif isinstance(hex, str): # test = 16744192 : #ff7f00
+        elif isinstance(hex, int): # test = 16744192 : #ff7f00
             r = hex // 65536
             hex %= 65536
             g = hex // 256
@@ -129,7 +145,6 @@ class Color:
 
         `int`s: fr, fg, fb, br, bg, bb, state as kwargs:
 
-
         ---
         `state`:  
         controls whether the color is foreground, background, or both
@@ -157,6 +172,7 @@ class Color:
                         if len(A) == 7:
                             r, g, b = Color.toRGB(A)
                             self.value = f"\033[38;2;{r};{g};{b}m"
+
                         else:
                             # "#______ #______"
                             fh, bh = A.strip().split(" ")
@@ -297,12 +313,15 @@ class Color:
                 elif t == "4":
                     self.bgRed, self.bgGreen, self.bgBlue = self.bg = (r, g, b)
 
-            else:
+            elif len(match) == 2:
                 FG, BG = match
                 _, fr, fg, fb = FG
                 _, br, bg, bb = BG
                 self.fgRed, self.fgGreen, self.fgBlue = self.fg = (fr, fg, fb)
                 self.bgRed, self.bgGreen, self.bgBlue = self.bg = (br, bg, bb)
+
+            else:
+                print(f"Color: {repr(self.value)}, {match=}")
 
     def getFgHex(self):
         if any(self.fg):
@@ -320,33 +339,44 @@ class Color:
         return ((f"fg:{f}" if f else "") + " " + (f"bg:{b}" if b else "")).strip()
 
     def __repr__(self):
-        #print(self.fg)
         return self.value
 
     def __str__(self):
-        #print(self.fg)
         return self.value
 
 def length(string):
     """
     get the visual length of a string, ignoring special ascii chars
-    if multiple lines are given, returns the longest length,
+    if multiple lines are given, returns the length of the longest line,
     if carriage returns are given, returns the length as if it's 2 lines
     """
 
     if isinstance(string, str):
         lines = re.split(r"(\n|\r|\033\[-?\d*(f|F))", string)
+
     elif isinstance(string, (list, tuple)):
         lines = list(string)
 
     max_len = 0
+
     for line in lines:
+
         if "\033" in line:
             fline = ""
+
             while line != "":
+
                 if m := re.match(r"\033\[[^a-zA-Z]*[a-zA-Z]", line):
                     m = m.group()
                     line = line.replace(m, "", 1)
+
+                elif line[0] == "\b":
+                    line = line[1:]
+                    fline = fline[:-1]
+
+                elif line[0] == "\r":
+                    line = line[1:]
+                    fline = ""
 
                 else:
                     fline = line[0]
@@ -652,43 +682,226 @@ slidetext.wave.vslide = _slidetext_vslide
 
 class TextArea:
 
-    def __init__(self, *lines):
-        self.lines = lines
+    def __init__(self, *lines, print_method=print, flash:bool=False, wait:float=0):
+        """
+        * lines : `tuple`
+        lines to add when TextArea is created
+        * print_method : `callable` = `print`
+        method used to display new lines  !!! this method must accept the keyword argument: 'end' !!!
+        * flash : `bool` = `False`
+        whether to flash the new lines white
+        * wait : `float` = 0
+        time to wait after displaying all lines
+        """
 
-    def write(self, line, text, print_method=print, flash=False, wait=0):
-        pass
+        self.lines = []
 
-    def clear(self, line, flash=False, wait=0):
-        pass
+        if lines:
+            self.add(*lines, print_method=print_method, flash=flash, wait=wait)
 
-    def replace(self, line, text, print_method=print, flash=False, wait=0):
-        pass
+    def write(self, line:int, text:str, print_method=print, flash:bool=False, wait:float=0):
+        """
+        * line : `int`
+        line to write text on
+        * text : `str`
+        text to write at end of specified line
+        * print_method : `callable` = `print
+        method used to display text  !!! this method must accept the keyword argument: 'end' !!!
+        * flash : `bool` = `False`
+        whether to make the written text flash white
+        * wait : `int` = `0`
+        how long to wait after writing
+        """
 
-    def input(self, line, prompt="", print_method=print, flash=False, clear_after=True):
-        pass
+        while line + 1 > len(self.lines):
+            self.lines.append("")
+            print()
 
-    def addLine(self, line="", print_method=print, flash=False, wait=0):
-        pass
+        text_height = len(self.lines)
+        curr_line = self.lines[line]
+        print(f"\033[{text_height - line}F", end=curr_line, flush=False)
 
-    def addLines(self, *lines, print_method=print, flash=False, wait=0):
-        pass
+        if flash:
+            print("\033[48;2;255;255;255m" + (" " * length(text)) + "\033[0m", end="", flush=True)
+            time.sleep(0.05)
+            print(("\b" * length(text)) + "\033[0m", end=(" " * length(text)) + ("\b" * length(text)), flush=True)
+        
+        print_method(text)
+        self.lines[line] += text
+        print("\n" * (text_height - line - 2), flush=True)
+
+        if wait > 0:
+            time.sleep(wait)
+
+
+    def clear(self, *lines, flash:bool=False, wait:float=0):
+        """
+        * lines : `int`
+        lines to clear
+        * flash : `bool` = `False`
+        whether to make each line flash white
+        * wait : `float` = `0`
+        time to wait after clearing all lines
+        """
+
+        for line in lines:
+
+            while line + 1 > len(self.lines):
+                self.lines.append("")
+                print()
+
+            curr = self.lines[line]
+            text_height = len(self.lines)
+            print(f"\033[{text_height - line}F", end="", flush=False)
+
+            if flash:
+                print("\033[48;2;255;255;255m" + (" " * length(curr)) + "\033[0m", end="\r", flush=True)
+                time.sleep(0.05)
+            
+            print("\033[0m" + (" " * length(curr)), flush=True)
+            print("\n" * (text_height - line - 2), flush=True)
+            self.lines[line] = ""
+
+            if wait > 0:
+                time.sleep(wait)
+
+
+    def replace(self, line:int, text:str, print_method=print, flash:bool=False, wait:float=0):
+        """
+        * line : `int`
+        line to replace
+        * text : `str`
+        text to replace line with
+        * print_method : `callable` = `print`
+        method used to display new text  !!! this method must accept the keyword argument: 'end' !!!
+        * flash : `bool` = `False`
+        whether to make the line flash white
+        * wait : `float` = `0`
+        time to wait after replacing line
+        """
+
+        while line + 1 > len(self.lines):
+            self.lines.append("")
+            print()
+
+        text_height = len(self.lines)
+        curr = self.lines[line]
+        print(f"\033[{text_height - line}F", end=(" " * length(curr)) + "\033[0m\r\033[0m", flush=True)
+
+        if flash:
+            print("\033[48;2;255;255;255m" + (" " * length(text)) + "\033[0m", end="\r", flush=True)
+            time.sleep(0.05)
+            print("\033[0m" + (" " * length(text)), end="\r", flush=True)
+        
+        print_method(text)
+        print("\n" * (text_height - line - 2), flush=True)
+        self.lines[line] = text
+
+        if wait > 0:
+            time.sleep(wait)
+
+
+    def input(self, line:int, prompt:str="", print_method=print, flash:bool=False, clear_after:bool=False):
+        """
+        * line : `int`
+        line to get input on
+        * prompt : `str` = `""`
+        input prompt
+        * print_method : `callable` = `print`
+        method used to display prompt  !!! this method must accept the keyword argument: 'end' !!!
+        * flash : `bool` = `False`
+        whether to flash the prompt white
+        * clear_after : `bool` = `False`
+        whether to erase the prompt and input afterwards
+        """
+
+        while line + 1 > len(self.lines):
+            self.lines.append("")
+            print()
+
+        text_height = len(self.lines)
+        curr = self.lines[line]
+        print(f"\033[{text_height - line}F", end=curr, flush=False)
+
+        if flash:
+            print("\033[48;2;255;255;255m" + (" " * length(prompt)) + "\033[0m", end=("\b" * length(prompt)), flush=True)
+            time.sleep(0.05)
+            print("\033[0m" + (" " * length(prompt)), end=("\b" * length(prompt)), flush=True)
+        
+        print_method(prompt, end="")
+        inp = input("")
+
+        if clear_after:
+            print("\033[F" + curr + (" " * (length(prompt) + length(inp))), flush=True)
+
+        else:
+            self.lines[line] += prompt + inp
+
+        print("\n" * (text_height - line - 2), flush=True)
+
+        return inp
+
+
+    def add(self, *lines, print_method=print, flash:bool=False, wait:float=0):
+        """
+        * lines : `tuple`
+        text to add to end of TextArea
+        * print_method : `callable` = `print`
+        method used to display new lines
+        * flash : `bool` = `False`
+        whether to flash the new lines white
+        * wait : `float` = `0`
+        time to wait after adding all lines
+        """
+
+        for line in lines:
+            self.lines.append(line)
+
+            if flash:
+                print("\033[48;2;255;255;255m" + (" " * length(line)) + "\033[0m", end="\r", flush=True)
+                time.sleep(0.05)
+                print(" " * length(line), end="\r", flush=True)
+
+            print_method(line)
+
+        if wait:
+            time.sleep(wait)
 
     def _update(self, lines=-1):
         pass
 
 
 def main():
-    typewrite("Hello, there!")
+    # typewrite("Hello, there!")
 
-    typewrite(f"{Color('#ff0000')}Hello{Color()}, {Color.ORANGE}there{Color()}!")
+    # typewrite(f"{Color('#ff0000')}Hello{Color()}, {Color.ORANGE}there{Color()}!")
 
-    slidetext("This is a test!")
+    # slidetext("This is a test!")
 
-    slidetext("\n".join([
-        "random block of text",
-        "for the purpose of testing text alignment",
-        "weeee!!"
-    ]), start_side="left", block_slide=True, slide_start=0, rate=slidetext.rate.ease_in_out, align="center")
+    # slidetext("\n".join([
+    #     "random block of text",
+    #     "for the purpose of testing text alignment",
+    #     "weeee!!"
+    # ]), start_side="left", block_slide=True, slide_start=0, rate=slidetext.rate.ease_in_out, align="center")
+
+    time.sleep(0.3)
+    area = TextArea(
+        " 01 | ",
+        " 02 | ",
+        " 03 | ",
+        " 04 | ",
+        " 05 | ",
+        " 06 | ",
+        wait=0.1
+    )
+
+    area.write(0, "@Lexer", flash=True, wait=0.2)
+
+    area.write(1, "#!literals", flash=True, wait=0.2)
+
+    i = area.input(1, "dis a test: ", flash=True, clear_after=True)
+
+
 
 if __name__ == "__main__":
 
