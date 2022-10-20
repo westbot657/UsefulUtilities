@@ -3,6 +3,12 @@ import math
 import time
 import re
 
+# Things I want to add:
+# Progress bar (Text Area compatible only)
+# Debug print (cuz it's a good class and I need it)
+# more text display methods (ideally compatible with TextArea)
+
+
 def get_kwargs(kwargs:dict, *allowed_keys):
     for key in allowed_keys:
         val = kwargs.get(key, None)
@@ -18,6 +24,7 @@ class Color:
         ORANGE = "\033[38;2;255;127;0m"
         YELLOW = "\033[38;2;255;255;0m"
         GREEN  = "\033[38;2;0;255;0m"
+        CYAN   = "\033[38;2;0;255;255m"
         BLUE   = "\033[38;2;0;0;255m"
         PURPLE = "\033[38;2;255;0;255m"
         BLACK  = "\033[38;2;0;0;0m"
@@ -30,6 +37,7 @@ class Color:
         ORANGE = "\033[48;2;255;127;0m"
         YELLOW = "\033[48;2;255;255;0m"
         GREEN  = "\033[48;2;0;255;0m"
+        CYAN   = "\03[48;2;0;255;255m"
         BLUE   = "\033[48;2;0;0;255m"
         PURPLE = "\033[48;2;255;0;255m"
         BLACK  = "\033[48;2;0;0;0m"
@@ -72,15 +80,7 @@ class Color:
             # print(f"\033[38;2;{red};{green};{blue}m", red, green, blue, "\033[0m")
             return f"\033[38;2;{red};{green};{blue}m"
 
-
-        # i = 0
-        # while i <= 1:
-        #     _get(i)
-        #     i += 0.05
         colored = ""
-        # "this is an example string blorp"
-        #  ^          ^  ^         ^
-        #  pos      end  [pos]     start  width=13
         for i in range(len(text)):
             c = text[i]
             d = i
@@ -94,10 +94,6 @@ class Color:
             colored += col + c
         colored += "\033[0m"
         return colored
-            
-            
-
-            
 
     @staticmethod
     def toHex(*val):
@@ -571,8 +567,275 @@ def segment(text, start, end=None):
 
     return seg
 
-    
+class TextArea:
 
+    _compatible_print_methods = [print]
+    _incompatible_print_methods = []
+
+    @classmethod
+    def _compatible(cls, func):
+        cls._compatible_print_methods.append(func)
+        return func
+
+    @classmethod
+    def _incompatible(cls, func):
+        """
+        mark an output method as incompatible with TextArea
+        """
+        cls._incompatible_print_methods.append(func)
+        return func
+
+    def __init__(self, *lines, print_method=print, flash:bool=False, wait:float=0, override_print_compatibility=False):
+        """
+        * lines : `tuple`  
+        lines to add when TextArea is created  
+        * print_method : `callable` = `print`  !! `slidetext` is NOT fully compatible !!  
+        method used to display new lines  !! this method must accept the keyword argument: 'end' !!  
+        * flash : `bool` = `False`  
+        whether to flash the new lines white  
+        * wait : `float` = 0  
+        time to wait after displaying all lines  
+        """
+
+        if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
+
+        if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
+
+        self.lines = []
+
+        if lines:
+            self.add(*lines, print_method=print_method, flash=flash, wait=wait)
+
+    def write(self, line:int, text:str, print_method=print, flash:bool=False, wait:float=0, override_print_compatibility=False):
+        """
+        * line : `int`  
+        line to write text on  
+        * text : `str`  
+        text to write at end of specified line  
+        * print_method : `callable` = `print  !! `slidetext` is NOT fully compatible !!  
+        method used to display text  !! this method must accept the keyword argument: 'end' !!  
+        * flash : `bool` = `False`  
+        whether to make the written text flash white  
+        * wait : `int` = `0`  
+        how long to wait after writing  
+        """
+
+        if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
+
+        if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
+
+        while line + 1 > len(self.lines):
+            self.lines.append("")
+            print()
+
+        text_height = len(self.lines)
+        curr_line = self.lines[line]
+        print(f"\033[{text_height - line}F", end=curr_line, flush=False)
+
+        if flash:
+            print("\033[48;2;255;255;255m" + (" " * length(text)) + "\033[0m", end="", flush=True)
+            time.sleep(0.05)
+            print(("\b" * length(text)) + "\033[0m", end=(" " * length(text)) + ("\b" * length(text)), flush=True)
+        
+        print_method(text)
+        self.lines[line] += text
+        print("\n" * (text_height - line - 2), flush=True)
+
+        if wait > 0:
+            time.sleep(wait)
+
+
+    def clear(self, *lines, flash:bool=False, wait:float=0):
+        """
+        * lines : `int`  
+        lines to clear  
+        * flash : `bool` = `False`  
+        whether to make each line flash white  
+        * wait : `float` = `0`  
+        time to wait after clearing all lines  
+        """
+
+        for line in lines:
+
+            while line + 1 > len(self.lines):
+                self.lines.append("")
+                print()
+
+            curr = self.lines[line]
+            text_height = len(self.lines)
+            print(f"\033[{text_height - line}F", end="", flush=False)
+
+            if flash:
+                print("\033[48;2;255;255;255m" + (" " * length(curr)) + "\033[0m", end="\r", flush=True)
+                time.sleep(0.05)
+            
+            print("\033[0m" + (" " * length(curr)), flush=True)
+            print("\n" * (text_height - line - 2), flush=True)
+            self.lines[line] = ""
+
+            if wait > 0:
+                time.sleep(wait)
+
+
+    def replace(self, line:int, text:str, print_method=print, flash:bool=False, wait:float=0, override_print_compatibility=False):
+        """
+        * line : `int`  
+        line to replace  
+        * text : `str`  
+        text to replace line with  
+        * print_method : `callable` = `print`  !! `slidetext` is NOT fully compatible !!  
+        method used to display new text  !! this method must accept the keyword argument: 'end' !!  
+        * flash : `bool` = `False`  
+        whether to make the line flash white  
+        * wait : `float` = `0`  
+        time to wait after replacing line  
+        """
+
+        if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
+
+        if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
+
+        while line + 1 > len(self.lines):
+            self.lines.append("")
+            print()
+
+        text_height = len(self.lines)
+        curr = self.lines[line]
+        print(f"\033[{text_height - line}F", end=(" " * length(curr)) + "\033[0m\r\033[0m", flush=True)
+
+        if flash:
+            print("\033[48;2;255;255;255m" + (" " * length(text)) + "\033[0m", end="\r", flush=True)
+            time.sleep(0.05)
+            print("\033[0m" + (" " * length(text)), end="\r", flush=True)
+        
+        print_method(text)
+        print("\n" * (text_height - line - 2), flush=True)
+        self.lines[line] = text
+
+        if wait > 0:
+            time.sleep(wait)
+
+
+    def input(self, line:int, prompt:str="", print_method=print, flash:bool=False, clear_after:bool=False, override_print_compatibility=False):
+        """
+        * line : `int`  
+        line to get input on  
+        * prompt : `str` = `""`  
+        input prompt  
+        * print_method : `callable` = `print`  !! `slidetext` is NOT fully compatible !!  
+        method used to display prompt  !! this method must accept the keyword argument: 'end' !!  
+        * flash : `bool` = `False`  
+        whether to flash the prompt white  
+        * clear_after : `bool` = `False`  
+        whether to erase the prompt and input afterwards  
+        """
+
+        if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
+
+        if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
+
+        while line + 1 > len(self.lines):
+            self.lines.append("")
+            print()
+
+        text_height = len(self.lines)
+        curr = self.lines[line]
+        print(f"\033[{text_height - line}F", end=curr, flush=False)
+
+        if flash:
+            print("\033[48;2;255;255;255m" + (" " * length(prompt)) + "\033[0m", end=("\b" * length(prompt)), flush=True)
+            time.sleep(0.05)
+            print("\033[0m" + (" " * length(prompt)), end=("\b" * length(prompt)), flush=True)
+        
+        print_method(prompt, end="")
+        inp = input("")
+
+        if clear_after:
+            print("\033[F" + curr + (" " * (length(prompt) + length(inp))), flush=True)
+
+        else:
+            self.lines[line] += prompt + inp
+
+        print("\n" * (text_height - line - 2), flush=True)
+        return inp
+
+
+    def add(self, *lines, print_method=print, flash:bool=False, wait:float=0, override_print_compatibility=False):
+        """
+        * lines : `tuple`  
+        text to add to end of TextArea  
+        * print_method : `callable` = `print`  !! `slidetext` is NOT fully compatible !!  
+        method used to display new lines  
+        * flash : `bool` = `False`  
+        whether to flash the new lines white  
+        * wait : `float` = `0`  
+        time to wait after adding all lines  
+        """
+
+        if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
+
+        if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
+
+        for line in lines:
+            self.lines.append(line)
+
+            if flash:
+                print("\033[48;2;255;255;255m" + (" " * length(line)) + "\033[0m", end="\r", flush=True)
+                time.sleep(0.05)
+                print(" " * length(line), end="\r", flush=True)
+
+            print_method(line)
+
+        if wait:
+            time.sleep(wait)
+
+
+    def slide(self, line:int, text:str, rate=0.05, wait:int=0):
+        """
+        text must be a single line (no newlines, carriage returns, etc...)  
+
+        rate can be a `float` or,  
+        a `callable` that takes 1 argument of type `float` (between 0 and 1) and returns a `float` for sleep time
+        """
+        if re.findall(r"(\033\[\-?\d*(F|f|G)|\n|\r)", text):
+            raise Exception("line control characters are not allowed in TextArea.slide()")
+        
+        while line + 1 > len(self.lines):
+            self.lines.append("")
+            print()
+
+        text_height = len(self.lines)
+        curr = self.lines[line]
+        print(f"\033[{text_height - line}F", end=curr, flush=False)
+
+        l = length(text)-1
+        print(l)
+
+        for i in range(l):
+            s = segment(text, l-i, l)
+            print(s, end="", flush=True)
+            if isinstance(wait, (int, float)):
+                time.sleep(wait)
+            else:
+                time.sleep(wait(length(s) / l))
+            print("\b" * length(s), end="", flush=False)
+
+        print(text, flush=False)
+        self.lines[line] += text
+        print("\n" * (text_height - line - 2), flush=True)
+
+
+@TextArea._compatible
 def typewrite(*values, sep=" ", end="\n", rate=0.05, dynamic_rate=True, max_width=100, hidden_chars_take_time=False):
     """
     rate: time between chars
@@ -656,30 +919,133 @@ def typewrite(*values, sep=" ", end="\n", rate=0.05, dynamic_rate=True, max_widt
 
             prev_char = c
 
-def _slidetext_vslide(line): # slide_wave
-    return abs(line) * 2
+def _slidetext_vslide(mod:int=2): # wave
+    """
+    `mod` controls the char offset for each line in an effect  
+    Ex:  
+    ```python
+    >> slidetext("Example text\\nwith multiple lines", slide_wave=slidetext.wave.vwave(2))
+    |
+    |s
 
-def _slidetext_easeinout(idx): # rate
-    return (1-idx if idx <= 0.5 else idx)/10
+    |ext
+    |e lines
 
-def _slidetext_rate(): pass
+    |mple text
+    |ultiple lines
 
-def _slidetext_wave(ln):
+    |Example text
+    |with multiple lines
+
+    >> slidetext("Example text\\nwith multiple lines", slide_wave=slidetext.wave.vwave(4))
+    |
+    |s
+
+    |e text
+    |e lines
+
+    |Example text
+    |ultiple lines
+
+    |Example text
+    |with multiple lines
+    ```  
+
+    """
+    def _wave(line:int):
+        return abs(line) * mod
+    return _wave
+
+def _slidetext_uslide(mod:int=2): # wave
+    if mod < 0: raise Exception("mod must be greater or equal to zero")
+    def _wave(line:int):
+        return abs(line) ** mod
+    return _wave
+
+def _slidetext_easeinout(mod:float=10): # rate
+    """
+    lower mod => faster effect  
+    higher mod => slower effect
+    """
+    if mod <= 0: raise Exception("mod must be positive and non-zero")
+    def _rate(percent:float):
+        return (1 - percent if percent <= 0.5 else percent) / mod
+    return _rate
+
+def _slidetext_ease_out(mod:float=10): # rate
+    """
+    lower mod => faster effect  
+    higher mod => slower effect
+    """
+    if mod <= 0: raise Exception("mod must be positive and non-zero")
+    def _rate(percent:float):
+        return (1 - percent) / mod
+    return _rate
+
+def _slidetext_ease_in(mod:float=10): #rate
+    """
+    lower mod => faster effect  
+    higher mod => slower effect
+    """
+    if mod <= 0: raise Exception("mod must be positive and non-zero")
+    def _rate(percent:float):
+        return (percent) / mod
+    return _rate
+
+def _slidetext_rate(mod:float=1):
+    """
+    This function itself mimics the effect of using a `float` as the rate. (returns `mod` directly with no changes to the value)  
+    However, it contains the builtin rates available  
+    
+    Example of using a builtin rate:  
+    `slidetext("...", rate=slidetext.rate.ease_in())`  
+    note that the rate is being called, that is because all builtin rates are wrappers to allow for configurable rates  
+
+    Ex:  
+    ```python
+    >> slidetext("Example text", rate=slidetext.rate.ease_in())
+    |t
+    |xt
+    |text
+    |ple text
+    |Example text
+    >> slidetext("Example text", rate=slidetext.rate.ease_in(5))
+    |t
+    |ext
+    |ple text
+    |Example text
+    ```  
+    """
+    return mod
+
+def _slidetext_wave(*_):
+    """
+    This function is the default block-slide effect.  
+    It also contains more builtin rates
+    """
     return 0
 
+@TextArea._incompatible
 def slidetext(*values, sep=" ", end="\n", block_slide=False, rate=0.05, **slide_options):
     """
+    !! NOT fully compatible with `TextArea` !!  
+
     block_slide: whether to slide multiple lines simultaneously, or one at a time  
 
-    if rate is a `callback`, then when called, it will be passed a float between 0 and 1, representing the slide progress,
-    and is expected to return a `float` for how long to wait
+    if rate is a `callback`, then when called, it will be passed a float between 0 and 1, representing the slide progress,  
+    and is expected to return a `float` for how long to wait  
 
-    slide_options:
+    slide_options:  
     slide_start:`int` line that starts sliding first (no difference if no other setting is set)  
     slide_wave:`callback` function that returns a char-offset when passed a line number  
     (line number is relative to slide_start if given, or 0, the top line of text) (positive is below, negative is above)  
     align:`str`  "center", "left", "right", or "justify" (default is "left")  
-    start_side:`str`  "left", "right" (which side of the screen should the text slid out from) (may add "top" and "bottom")
+    start_side:`str`  "left", "right" (which side of the screen should the text slid out from) (may add "top" and "bottom")  
+    
+    ---
+    builtin dynamic rates can be found in: `slidetext.rate`
+    builtin wave effects can be found in: `slidetext.wave`
+    
     """
     pass
 
@@ -691,7 +1057,7 @@ def slidetext(*values, sep=" ", end="\n", block_slide=False, rate=0.05, **slide_
     align = slide_options.get("align", "left")
     start_side = slide_options.get("start_side", "left")
     slide_start = slide_options.get("slide_start", 0)
-    slide_wave = slide_options.get("slide_wave", _slidetext_wave)
+    slide_wave = slide_options.get("slide_wave", _slidetext_wave())
 
     width = length(lines)
 
@@ -764,6 +1130,7 @@ def slidetext(*values, sep=" ", end="\n", block_slide=False, rate=0.05, **slide_
                 print(f"\033[{len(new_lines)}F", end="", flush=True)
                 if isinstance(rate, (int, float)):
                     time.sleep(rate)
+
                 else:
                     time.sleep(rate(min(max(midx, idx), width)/width))
                 
@@ -792,7 +1159,6 @@ def slidetext(*values, sep=" ", end="\n", block_slide=False, rate=0.05, **slide_
                     time.sleep(rate(min(max(midx, idx), x)/x))
                 
             print("\n" * len(new_lines), end="", flush=True)
-
 
     else:
         if start_side == "left":
@@ -825,199 +1191,15 @@ def slidetext(*values, sep=" ", end="\n", block_slide=False, rate=0.05, **slide_
 
 slidetext.rate = _slidetext_rate
 slidetext.wave = _slidetext_wave
+
 slidetext.rate.ease_in_out = _slidetext_easeinout
+slidetext.rate.ease_in = _slidetext_ease_in
+slidetext.rate.ease_out = _slidetext_ease_out
+
 slidetext.wave.vslide = _slidetext_vslide
+slidetext.wave.uslide = _slidetext_uslide
 
 
-class TextArea:
-
-    def __init__(self, *lines, print_method=print, flash:bool=False, wait:float=0):
-        """
-        * lines : `tuple`
-        lines to add when TextArea is created
-        * print_method : `callable` = `print`
-        method used to display new lines  !!! this method must accept the keyword argument: 'end' !!!
-        * flash : `bool` = `False`
-        whether to flash the new lines white
-        * wait : `float` = 0
-        time to wait after displaying all lines
-        """
-
-        self.lines = []
-
-        if lines:
-            self.add(*lines, print_method=print_method, flash=flash, wait=wait)
-
-    def write(self, line:int, text:str, print_method=print, flash:bool=False, wait:float=0):
-        """
-        * line : `int`
-        line to write text on
-        * text : `str`
-        text to write at end of specified line
-        * print_method : `callable` = `print
-        method used to display text  !!! this method must accept the keyword argument: 'end' !!!
-        * flash : `bool` = `False`
-        whether to make the written text flash white
-        * wait : `int` = `0`
-        how long to wait after writing
-        """
-
-        while line + 1 > len(self.lines):
-            self.lines.append("")
-            print()
-
-        text_height = len(self.lines)
-        curr_line = self.lines[line]
-        print(f"\033[{text_height - line}F", end=curr_line, flush=False)
-
-        if flash:
-            print("\033[48;2;255;255;255m" + (" " * length(text)) + "\033[0m", end="", flush=True)
-            time.sleep(0.05)
-            print(("\b" * length(text)) + "\033[0m", end=(" " * length(text)) + ("\b" * length(text)), flush=True)
-        
-        print_method(text)
-        self.lines[line] += text
-        print("\n" * (text_height - line - 2), flush=True)
-
-        if wait > 0:
-            time.sleep(wait)
-
-
-    def clear(self, *lines, flash:bool=False, wait:float=0):
-        """
-        * lines : `int`
-        lines to clear
-        * flash : `bool` = `False`
-        whether to make each line flash white
-        * wait : `float` = `0`
-        time to wait after clearing all lines
-        """
-
-        for line in lines:
-
-            while line + 1 > len(self.lines):
-                self.lines.append("")
-                print()
-
-            curr = self.lines[line]
-            text_height = len(self.lines)
-            print(f"\033[{text_height - line}F", end="", flush=False)
-
-            if flash:
-                print("\033[48;2;255;255;255m" + (" " * length(curr)) + "\033[0m", end="\r", flush=True)
-                time.sleep(0.05)
-            
-            print("\033[0m" + (" " * length(curr)), flush=True)
-            print("\n" * (text_height - line - 2), flush=True)
-            self.lines[line] = ""
-
-            if wait > 0:
-                time.sleep(wait)
-
-
-    def replace(self, line:int, text:str, print_method=print, flash:bool=False, wait:float=0):
-        """
-        * line : `int`
-        line to replace
-        * text : `str`
-        text to replace line with
-        * print_method : `callable` = `print`
-        method used to display new text  !!! this method must accept the keyword argument: 'end' !!!
-        * flash : `bool` = `False`
-        whether to make the line flash white
-        * wait : `float` = `0`
-        time to wait after replacing line
-        """
-
-        while line + 1 > len(self.lines):
-            self.lines.append("")
-            print()
-
-        text_height = len(self.lines)
-        curr = self.lines[line]
-        print(f"\033[{text_height - line}F", end=(" " * length(curr)) + "\033[0m\r\033[0m", flush=True)
-
-        if flash:
-            print("\033[48;2;255;255;255m" + (" " * length(text)) + "\033[0m", end="\r", flush=True)
-            time.sleep(0.05)
-            print("\033[0m" + (" " * length(text)), end="\r", flush=True)
-        
-        print_method(text)
-        print("\n" * (text_height - line - 2), flush=True)
-        self.lines[line] = text
-
-        if wait > 0:
-            time.sleep(wait)
-
-
-    def input(self, line:int, prompt:str="", print_method=print, flash:bool=False, clear_after:bool=False):
-        """
-        * line : `int`
-        line to get input on
-        * prompt : `str` = `""`
-        input prompt
-        * print_method : `callable` = `print`
-        method used to display prompt  !!! this method must accept the keyword argument: 'end' !!!
-        * flash : `bool` = `False`
-        whether to flash the prompt white
-        * clear_after : `bool` = `False`
-        whether to erase the prompt and input afterwards
-        """
-
-        while line + 1 > len(self.lines):
-            self.lines.append("")
-            print()
-
-        text_height = len(self.lines)
-        curr = self.lines[line]
-        print(f"\033[{text_height - line}F", end=curr, flush=False)
-
-        if flash:
-            print("\033[48;2;255;255;255m" + (" " * length(prompt)) + "\033[0m", end=("\b" * length(prompt)), flush=True)
-            time.sleep(0.05)
-            print("\033[0m" + (" " * length(prompt)), end=("\b" * length(prompt)), flush=True)
-        
-        print_method(prompt, end="")
-        inp = input("")
-
-        if clear_after:
-            print("\033[F" + curr + (" " * (length(prompt) + length(inp))), flush=True)
-
-        else:
-            self.lines[line] += prompt + inp
-
-        print("\n" * (text_height - line - 2), flush=True)
-
-        return inp
-
-
-    def add(self, *lines, print_method=print, flash:bool=False, wait:float=0):
-        """
-        * lines : `tuple`
-        text to add to end of TextArea
-        * print_method : `callable` = `print`
-        method used to display new lines
-        * flash : `bool` = `False`
-        whether to flash the new lines white
-        * wait : `float` = `0`
-        time to wait after adding all lines
-        """
-
-        for line in lines:
-            self.lines.append(line)
-
-            if flash:
-                print("\033[48;2;255;255;255m" + (" " * length(line)) + "\033[0m", end="\r", flush=True)
-                time.sleep(0.05)
-                print(" " * length(line), end="\r", flush=True)
-
-            print_method(line)
-
-        if wait:
-            time.sleep(wait)
-
-    def _update(self, lines=-1):
-        pass
 
 
 def main():
@@ -1031,7 +1213,7 @@ def main():
     #     "random block of text",
     #     "for the purpose of testing text alignment",
     #     "weeee!!"
-    # ]), start_side="left", block_slide=True, slide_start=0, rate=slidetext.rate.ease_in_out, align="center")
+    # ]), start_side="left", block_slide=True, slide_start=0, rate=slidetext.rate.ease_in_out(), align="center")
 
 
     # slidetext("\n".join([
@@ -1058,11 +1240,33 @@ def main():
     #     "but with a dynamic slide rate"
     # ]), block_slide=True, start_side="right", rate=slidetext.rate.ease_in_out)
 
-    typewrite(f"This is what {Color.rainbow('typewrite')} looks like!")
-    typewrite(Color.rainbow("And with a rainbow on the whole line"))
-    typewrite(Color.rainbow("And another line with a different rainbow WEEEE", start=None))
+    # typewrite(f"This is what {Color.rainbow('typewrite')} looks like!")
+    # typewrite(Color.rainbow("And with a rainbow on the whole line"))
+    # typewrite(Color.rainbow("And another line with a different rainbow WEEEE", start=None))
 
-    print(Color.rainbow("#"*300))
+    # print(Color.rainbow("#"*300))
+
+    area = TextArea(
+        "",
+        " 01 | ",
+        " 02 | ",
+        " 03 | ",
+        " 04 | ",
+        " 05 | ",
+        " 06 | ",
+        ""
+    )
+
+    area.write(1, f"{Color.FG.ORANGE}@Lexer{Color()}", flash=True, wait=0.4)
+    area.write(2, f"{Color.FG.YELLOW}#!literals{Color()}", flash=True, wait=0.4)
+    area.slide(3, f"{Color.FG.BLUE}+ {Color.FG.CYAN}PLUS", wait=0.4)
+
+    area.clear(2, wait=0.4)
+
+    area.input(4, "type something: ", flash=True)
+
+
+    
 
 if __name__ == "__main__":
 
