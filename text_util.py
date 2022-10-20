@@ -1,4 +1,6 @@
 
+from threading import Thread
+
 import math
 import time
 import re
@@ -17,6 +19,8 @@ def get_kwargs(kwargs:dict, *allowed_keys):
     return None
 
 class Color:
+
+    NONE = "\033[0m"
 
     class FG:
         RED    = "\033[38;2;255;0;0m"
@@ -559,6 +563,9 @@ def length(string):
     elif isinstance(string, (list, tuple)):
         lines = list(string)
 
+    else:
+        lines = list(str(string))
+
     max_len = 0
 
     for line in lines:
@@ -663,6 +670,7 @@ class TextArea:
             raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
 
         self.lines = []
+        self._thread_lock = False
 
         if lines:
             self.add(*lines, print_method=print_method, flash=flash, wait=wait)
@@ -681,10 +689,15 @@ class TextArea:
         how long to wait after writing  
         """
 
+        while self._thread_lock: pass
+        self._thread_lock = True
+
         if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            self._thread_lock = False
             raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
 
         if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            self._thread_lock = False
             raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
 
         while line + 1 > len(self.lines):
@@ -704,8 +717,12 @@ class TextArea:
         self.lines[line] += text
         print("\n" * (text_height - line - 2), flush=True)
 
+        self._thread_lock = False
+
         if wait > 0:
             time.sleep(wait)
+
+        
 
 
     def clear(self, *lines, flash:bool=False, wait:float=0):
@@ -717,6 +734,9 @@ class TextArea:
         * wait : `float` = `0`  
         time to wait after clearing all lines  
         """
+
+        while self._thread_lock: pass
+        self._thread_lock = True
 
         for line in lines:
 
@@ -738,6 +758,8 @@ class TextArea:
 
             if wait > 0:
                 time.sleep(wait)
+        
+        self._thread_lock = False
 
 
     def replace(self, line:int, text:str, print_method=print, flash:bool=False, wait:float=0, override_print_compatibility=False):
@@ -754,10 +776,15 @@ class TextArea:
         time to wait after replacing line  
         """
 
+        while self._thread_lock: pass
+        self._thread_lock = True
+
         if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            self._thread_lock = False
             raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
 
         if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            self._thread_lock = False
             raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
 
         while line + 1 > len(self.lines):
@@ -777,6 +804,7 @@ class TextArea:
         print("\n" * (text_height - line - 2), flush=True)
         self.lines[line] = text
 
+        self._thread_lock = False
         if wait > 0:
             time.sleep(wait)
 
@@ -795,10 +823,15 @@ class TextArea:
         whether to erase the prompt and input afterwards  
         """
 
+        while self._thread_lock: pass
+        self._thread_lock = True
+
         if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            self._thread_lock = False
             raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
 
         if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            self._thread_lock = False
             raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
 
         while line + 1 > len(self.lines):
@@ -815,7 +848,9 @@ class TextArea:
             print("\033[0m" + (" " * length(prompt)), end=("\b" * length(prompt)), flush=True)
         
         print_method(prompt, end="")
+        self._thread_lock = False
         inp = input("")
+        self._thread_lock = True
 
         if clear_after:
             print("\033[F" + curr + (" " * (length(prompt) + length(inp))), flush=True)
@@ -824,6 +859,7 @@ class TextArea:
             self.lines[line] += prompt + inp
 
         print("\n" * (text_height - line - 2), flush=True)
+        self._thread_lock = False
         return inp
 
 
@@ -839,10 +875,15 @@ class TextArea:
         time to wait after adding all lines  
         """
 
+        while self._thread_lock: pass
+        self._thread_lock = True
+
         if print_method in TextArea._incompatible_print_methods and not override_print_compatibility:
+            self._thread_lock = False
             raise Exception(f"output method: '{print_method}' is labeled as Incompatible")
 
         if print_method not in TextArea._compatible_print_methods and not override_print_compatibility:
+            self._thread_lock = False
             raise Warning(f"output method: '{print_method}' is not labeled as Compatible")
 
         for line in lines:
@@ -855,6 +896,8 @@ class TextArea:
 
             print_method(line)
 
+        self._thread_lock = False
+
         if wait:
             time.sleep(wait)
 
@@ -866,7 +909,12 @@ class TextArea:
         rate can be a `float` or,  
         a `callable` that takes 1 argument of type `float` (between 0 and 1) and returns a `float` for sleep time
         """
+
+        while self._thread_lock: pass
+        self._thread_lock = True
+
         if re.findall(r"(\033\[-?\d*(F|f|G)|\n|\r)", text):
+            self._thread_lock = False
             raise Exception("line control characters are not allowed in TextArea.slide()")
         
         while line + 1 > len(self.lines):
@@ -891,6 +939,8 @@ class TextArea:
         print(text, flush=False)
         self.lines[line] += text
         print("\n" * (text_height - line - 2), flush=True)
+
+        self._thread_lock = False
 
         if wait > 0:
             time.sleep(wait)
@@ -1249,6 +1299,60 @@ def slidetext(*values, sep=" ", end="\n", block_slide=False, rate=0.05, **slide_
                         time.sleep(rate((width-i)/width))
                 print()
 
+class ProgressBar:
+
+    class Style:
+
+        def __init__(self, left_end, loaded_area, unloaded_area, right_end):
+            self.left_end = left_end
+            self.loaded_area = loaded_area
+            self.unloaded_area = unloaded_area
+            self.right_end = right_end
+
+        def get(self, bar_width:int=10, progress:float=0, left_color=Color.FG.NONE, loaded_color=Color.FG.NONE, unloaded_color=Color.FG.NONE, right_color=None):
+            """
+            progress should be a float between 0 and 1
+            width does not include the end chars
+            """
+            right_color = right_color or left_color
+
+            loaded = int(progress * bar_width)
+            unloaded = bar_width - loaded
+
+            return f"{left_color}{self.left_end}{loaded_color}{self.loaded_area * loaded}{unloaded_color}{self.unloaded_area * unloaded}{right_color}{self.right_end}\033[0m"
+
+    Style.solid = Style("▐", "█", "█", "▌")
+    Style.ascii_1 = Style("[", "|", "|", "]")
+    Style.ascii_2 = Style("<", "=", "-", ">")
+
+    def __init__(self, width=10, style=Style.ascii_1, left_end_color=Color.NONE, loaded_area_color=Color.NONE, unloaded_area_color=Color.NONE, right_end_color=None):
+        self.style = style
+        self.left_end_color = left_end_color
+        self.loaded_area_color = loaded_area_color
+        self.unloaded_area_color = unloaded_area_color
+        self.right_end_color = right_end_color or left_end_color
+
+        self.width = width
+        self.progress = 0
+
+    def set_progress(self, value):
+        self.progress = value
+
+    def __repr__(self):
+        return self.style.get(self.width, self.progress, self.left_end_color, self.loaded_area_color, self.unloaded_area_color, self.right_end_color)
+
+    def with_percentage(self, side="right", accuracy=2):
+        
+        percent = str(float(round(self.progress * 100, accuracy)))
+        while len(percent.split(".")[1]) < accuracy:
+            percent += "0"
+        if accuracy == 0:
+            percent = percent.split(".")[0]
+
+        if side == "right":
+            return f"{repr(self)} {percent}%"
+        elif side == "left":
+            return f"{percent}% {repr(self)}"
 
 slidetext.rate = _slidetext_rate
 slidetext.wave = _slidetext_wave
@@ -1261,11 +1365,45 @@ slidetext.wave.vslide = _slidetext_vslide
 slidetext.wave.uslide = _slidetext_uslide
 
 
+def slidetext_test():
+    return
+def typewrite_test():
+    return
+def TextArea_test():
+    return
+def ProgressBar_test():
 
+    test_bar = ProgressBar(15, ProgressBar.Style.solid, Color.FG.BLACK, Color.FG.GREEN, Color.FG.RED)
+
+    area = TextArea(
+        "",
+        "",
+        ""
+    )
+
+    def _bar_update():
+        for i in range(200):
+            test_bar.set_progress((i + 1) / 200)
+            area.replace(0, test_bar)
+            time.sleep(0.01)
+
+    bar_update = Thread(target=_bar_update)
+    bar_update.start()
+
+    time.sleep(0.4)
+    area.write(1, "How well does this work?", typewrite, wait=0.3)
+
+    while test_bar.progress < 1: pass
+
+    return
 
 def main():
     
-    
+    #slidetext_test()
+    #typewrite_test()
+    #TextArea_test()
+    ProgressBar_test()
+
 
 
     return
