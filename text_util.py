@@ -8,7 +8,6 @@ import re
 # Debug print (cuz it's a good class and I need it)
 # more text display methods (ideally compatible with TextArea)
 
-
 def get_kwargs(kwargs:dict, *allowed_keys):
     for key in allowed_keys:
         val = kwargs.get(key, None)
@@ -489,6 +488,64 @@ class Color:
     def __str__(self):
         return self.value
 
+class DebugPrint:
+
+    class __disabled:
+        def __init__(self):
+            return
+        def __call__(self, *_, **__):
+            return self
+        def __getitem__(self, *_, **__):
+            return self
+
+    _disabled = __disabled()
+
+    def __init__(self, name, color=Color.FG.NONE):
+        self.name = name
+        self.color = color
+        self._tags = []
+        self._active = False
+        self._disabled = []
+        self._tag_colors = {}
+
+    def toggle(self, *tags):
+        if not tags:
+            self._active = not self._active
+            return self
+
+        for tag in tags:
+            if tag in self._disabled:
+                self._disabled.remove(tag)
+            else:
+                self._disabled.append(tag)
+        return self
+
+    def config_tags(self, color_map):
+        self._tag_colors.update(color_map)
+        return self
+
+    def __getitem__(self, tag):
+        if tag in self._disabled or not self._active:
+            self._tags.clear()
+            return DebugPrint._disabled
+
+        self._tags.append(tag)
+        return self
+    
+    def __call__(self, *values, sep=' '):
+        if not self._active:
+            self._tags.clear()
+            return DebugPrint._disabled
+        out = f"[{self.color}{self.name}\033[0m] "
+        out += " ".join([f"{self._tag_colors.get(tag, Color.FG.NONE)}[{tag}]\033[0m" for tag in self._tags])
+        out = out.strip()
+        out += f": {sep.join([str(v) for v in values])}\033[0m"
+        self._tags.clear()
+        print(out)
+        return self
+
+
+_length_debug = DebugPrint("length", Color.FG.GREEN)
 def length(string):
     """
     get the visual length of a string, ignoring special ascii chars
@@ -505,31 +562,33 @@ def length(string):
     max_len = 0
 
     for line in lines:
+        _length_debug(f"line = {repr(line)}")
 
-        if "\033" in line:
+        if "\033" in line or "\b" in line:
             fline = ""
 
             while line != "":
 
                 if m := re.match(r"\033\[[^a-zA-Z]*[a-zA-Z]", line):
                     m = m.group()
+                    _length_debug(f"contains ascii: {repr(m)}")
                     line = line.replace(m, "", 1)
 
                 elif line[0] == "\b":
+                    _length_debug("contains backspace")
                     line = line[1:]
-                    fline = fline[:-1]
-
-                elif line[0] == "\r":
-                    line = line[1:]
-                    fline = ""
+                    fline += fline[:-1]
 
                 else:
-                    fline = line[0]
+                    _length_debug(f"char s: {repr(line[0])}")
+                    fline += line[0]
                     line = line[1:]
                     
+            _length_debug(f"len & max: {len(fline)}, {max_len}")
             max_len = max(len(fline), max_len)
 
         else:
+
             max_len = max(len(line), max_len)
 
     return max_len
@@ -552,7 +611,7 @@ def segment(text, start, end=None):
     while text != "":
         if m := re.match(r"\033\[[^a-zA-Z]*[a-zA-Z]", text):
             m = m.group()
-            if start <= width:
+            if start-1 <= width:
                 seg += m
             text = text.replace(m, "", 1)
 
@@ -807,7 +866,7 @@ class TextArea:
         rate can be a `float` or,  
         a `callable` that takes 1 argument of type `float` (between 0 and 1) and returns a `float` for sleep time
         """
-        if re.findall(r"(\033\[\-?\d*(F|f|G)|\n|\r)", text):
+        if re.findall(r"(\033\[-?\d*(F|f|G)|\n|\r)", text):
             raise Exception("line control characters are not allowed in TextArea.slide()")
         
         while line + 1 > len(self.lines):
@@ -818,21 +877,23 @@ class TextArea:
         curr = self.lines[line]
         print(f"\033[{text_height - line}F", end=curr, flush=False)
 
-        l = length(text)-1
-        print(l)
+        l = length(text)
 
         for i in range(l):
             s = segment(text, l-i, l)
             print(s, end="", flush=True)
-            if isinstance(wait, (int, float)):
-                time.sleep(wait)
+            if isinstance(rate, (int, float)):
+                time.sleep(rate)
             else:
-                time.sleep(wait(length(s) / l))
+                time.sleep(rate(length(s) / l))
             print("\b" * length(s), end="", flush=False)
 
         print(text, flush=False)
         self.lines[line] += text
         print("\n" * (text_height - line - 2), flush=True)
+
+        if wait > 0:
+            time.sleep(wait)
 
 
 @TextArea._compatible
@@ -1203,70 +1264,11 @@ slidetext.wave.uslide = _slidetext_uslide
 
 
 def main():
-    # typewrite("Hello, there!")
-
-    # typewrite(f"{Color('#ff0000')}Hello{Color()}, {Color.ORANGE}there{Color()}!")
-
-    # slidetext("This is a test!")
-
-    # slidetext("\n".join([
-    #     "random block of text",
-    #     "for the purpose of testing text alignment",
-    #     "weeee!!"
-    # ]), start_side="left", block_slide=True, slide_start=0, rate=slidetext.rate.ease_in_out(), align="center")
-
-
-    # slidetext("\n".join([
-    #     "Slide Text!",
-    #     "This is an example of block-slide",
-    #     "and center alignment"
-    # ]), block_slide=True, align="center")
-
-    # slidetext("\n".join([
-    #     "and this is an example",
-    #     "of a justify-aligned",
-    #     "block-slide text",
-    #     "that slid from the right"
-    # ]), block_slide=True, align="justify", start_side="right")
-
-    # slidetext("\n".join([
-    #     "and this is a right-align",
-    #     "block-slide text"
-    # ]), block_slide=True, align="right", start_side="right")
-
-    # slidetext("\n".join([
-    #     "and finally, this is the",
-    #     "left-align block-slide text",
-    #     "but with a dynamic slide rate"
-    # ]), block_slide=True, start_side="right", rate=slidetext.rate.ease_in_out)
-
-    # typewrite(f"This is what {Color.rainbow('typewrite')} looks like!")
-    # typewrite(Color.rainbow("And with a rainbow on the whole line"))
-    # typewrite(Color.rainbow("And another line with a different rainbow WEEEE", start=None))
-
-    # print(Color.rainbow("#"*300))
-
-    area = TextArea(
-        "",
-        " 01 | ",
-        " 02 | ",
-        " 03 | ",
-        " 04 | ",
-        " 05 | ",
-        " 06 | ",
-        ""
-    )
-
-    area.write(1, f"{Color.FG.ORANGE}@Lexer{Color()}", flash=True, wait=0.4)
-    area.write(2, f"{Color.FG.YELLOW}#!literals{Color()}", flash=True, wait=0.4)
-    area.slide(3, f"{Color.FG.BLUE}+ {Color.FG.CYAN}PLUS", wait=0.4)
-
-    area.clear(2, wait=0.4)
-
-    area.input(4, "type something: ", flash=True)
-
-
     
+    
+
+
+    return
 
 if __name__ == "__main__":
 
