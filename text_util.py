@@ -65,9 +65,9 @@ class Color:
             while percent < 0:
                 percent += 1
 
-            red = max(int(math.cos(math.radians(percent * 360)) * 255), 0)
-            green = max(int(math.cos(math.radians((percent * 360) - 80)) * 255), 0)
-            blue = max(int(math.cos(math.radians((percent * 360) + 120)) * 255), 0)
+            red = max(int(((math.cos(math.radians(percent * 360)) / 2) + 0.5) * 255), 0)
+            green = max(int(((math.cos(math.radians((percent * 360) - 120)) / 2) + 0.5) * 255), 0)
+            blue = max(int(((math.cos(math.radians((percent * 360) + 120)) / 2) + 0.5) * 255), 0)
 
             # print(f"\033[38;2;{red};{green};{blue}m", red, green, blue, "\033[0m")
             return f"\033[38;2;{red};{green};{blue}m"
@@ -1062,6 +1062,7 @@ def main():
     typewrite(Color.rainbow("And with a rainbow on the whole line"))
     typewrite(Color.rainbow("And another line with a different rainbow WEEEE", start=None))
 
+    print(Color.rainbow("#"*300))
 
 if __name__ == "__main__":
 
