@@ -99,7 +99,30 @@ class Color:
         return colored
 
     @staticmethod
-    def toHex(*val):
+    def fill_color(string:str) -> str:
+        """
+        This function spreads any existing colors through the string, fixing coloring issues when
+        getting a segment of the string
+        """
+
+        curr_color = "\033[0m"
+        new_string = ""
+
+        while string != "":
+            if m := re.match(r"\033\[([^a-zA-Z]*)m", string):
+                m = m.group()
+                string = string.replace(m, "", 1)
+                curr_color = m
+            
+            else:
+                c = string[0]
+                string = string[1:]
+                new_string += curr_color + c
+
+                
+
+    @staticmethod
+    def toHex(*val) -> str:
         """
         val may be a tuple (r, g, b) or an int (0xff0000)
         """
@@ -552,9 +575,9 @@ class DebugPrint:
 _length_debug = DebugPrint("length", Color.FG.GREEN)
 def length(string):
     """
-    get the visual length of a string, ignoring special ascii chars
+    get the visual length of a string, ignoring special ascii codes
     if multiple lines are given, returns the length of the longest line,
-    if carriage returns are given, returns the length as if it's 2 lines
+    carriage returns are counted as newlines
     """
 
     if isinstance(string, str):
@@ -602,7 +625,9 @@ def length(string):
 
 def segment(text, start, end=None):
     """
-    pass text to get segment of, and end position, or text, start pos, and end pos
+    pass text to get segment of, and end position; or text, start pos, and end pos
+    segment(text:`str`, end:`int`)
+    segment(text:`str`, start:`int`, end:`end`)
     """
 
     if end == None:
@@ -1370,7 +1395,26 @@ def slidetext_test():
 def typewrite_test():
     return
 def TextArea_test():
-    return
+    area = TextArea(
+        "",
+        " 01 | ",
+        " 02 | ",
+        " 03 | ",
+        " 04 | ",
+        " 05 | ",
+        " 06 | ",
+        " 07 | ",
+        " 08 | ",
+        " 09 | ",
+        " 10 | ",
+        "",
+        ""
+    )
+
+    area.write(1, f"{Color.FG.ORANGE}@Lexer{Color.NONE}", flash=True, wait=0.3)
+    area.write(2, f"{Color.FG.YELLOW}#!literals{Color.NONE}", flash=True, wait=0.3)
+
+
 def ProgressBar_test():
 
     test_bar = ProgressBar(15, ProgressBar.Style.solid, Color.FG.BLACK, Color.FG.GREEN, Color.FG.RED)
@@ -1403,8 +1447,6 @@ def main():
     #typewrite_test()
     #TextArea_test()
     ProgressBar_test()
-
-
 
     return
 
